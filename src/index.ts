@@ -206,14 +206,14 @@ const buildReel = () => {
         previousPosition: number;
         blur: PIXI.filters.BlurFilter;
     }[] = [];
-    const reelContainer = new PIXI.Container();
-    reelContainer.x = Math.round(gameWidth / 3.8);
-    reelContainer.y = 60;
+    const reelsContainer = new PIXI.Container();
+    reelsContainer.x = Math.round(gameWidth / 3.8);
+    reelsContainer.y = 60;
 
-    for (let i = 0; i < 3; i++) {
-        const rc = new PIXI.Container();
-        rc.x = i * REEL_WIDTH;
-        reelContainer.addChild(rc);
+    for (let reelIndex = 0; reelIndex < 3; reelIndex++) {
+        const reelContainer = new PIXI.Container();
+        reelContainer.x = reelIndex * REEL_WIDTH;
+        reelsContainer.addChild(reelContainer);
 
         const reel: {
             symbols: Sprite[];
@@ -223,22 +223,22 @@ const buildReel = () => {
             blur: PIXI.filters.BlurFilter;
         } = {
             symbols: [],
-            container: rc,
+            container: reelContainer,
             position: 0,
             previousPosition: 0,
             blur: new PIXI.filters.BlurFilter(),
         };
         reel.blur.blurX = 0;
         reel.blur.blurY = 0;
-        rc.filters = [reel.blur];
+        reelContainer.filters = [reel.blur];
 
-        for (let j = 0; j < 4; j++) {
+        for (let symbolIndex = 0; symbolIndex < 4; symbolIndex++) {
             const symbol = getRandomSymbol();
-            symbol.y = j * SYMBOL_SIZE;
+            symbol.y = symbolIndex * SYMBOL_SIZE;
             symbol.scale.x = symbol.scale.y = Math.min(SYMBOL_SIZE / symbol.width, SYMBOL_SIZE / symbol.height);
             symbol.x = Math.round((SYMBOL_SIZE - symbol.width) / 2);
             reel.symbols.push(symbol);
-            rc.addChild(symbol);
+            reelContainer.addChild(symbol);
         }
         reels.push(reel);
     }
@@ -251,11 +251,19 @@ const buildReel = () => {
         running = true;
         machineResult = machineStates[Math.floor(Math.random() * machineStates.length)];
 
-        for (let i = 0; i < reels.length; i++) {
-            const r = reels[i];
-            const target = r.position + 12;
-            const time = 3000 + i * 600;
-            tweenTo(r, "position", target, time, backout(1), null, i === reels.length - 1 ? reelsComplete : null);
+        for (let reelIndex = 0; reelIndex < reels.length; reelIndex++) {
+            const reel = reels[reelIndex];
+            const target = reel.position + 12;
+            const time = 2100 + reelIndex * 300;
+            tweenTo(
+                reel,
+                "position",
+                target,
+                time,
+                backout(1),
+                null,
+                reelIndex === reels.length - 1 ? reelsComplete : null
+            );
         }
     };
 
@@ -264,20 +272,28 @@ const buildReel = () => {
     };
 
     app.ticker.add(() => {
-        for (let i = 0; i < reels.length; i++) {
-            const r = reels[i];
-            r.blur.blurY = (r.position - r.previousPosition) * 8;
-            r.previousPosition = r.position;
+        for (let reelIndex = 0; reelIndex < reels.length; reelIndex++) {
+            const reel = reels[reelIndex];
+            reel.blur.blurY = (reel.position - reel.previousPosition) * 8;
+            reel.previousPosition = reel.position;
 
-            for (let j = 0; j < r.symbols.length; j++) {
-                const s = r.symbols[j];
-                const prevy = s.y;
-                s.y = ((r.position + j) % r.symbols.length) * (SYMBOL_SIZE + 50) - (SYMBOL_SIZE + 50);
-                if (s.y < 0 && prevy > SYMBOL_SIZE) {
-                    if (j !== 0) {
-                        s.texture = PIXI.Texture.from(`./assets/symbols/${machineResult.reels[j - 1][i]}.png`);
-                        s.scale.x = s.scale.y = Math.min(SYMBOL_SIZE / s.texture.width, SYMBOL_SIZE / s.texture.height);
-                        s.x = Math.round((SYMBOL_SIZE - s.width) / 2);
+            for (let symbolIndex = 0; symbolIndex < reel.symbols.length; symbolIndex++) {
+                const SYMBOL_VERTICAL_MARGIN = 50;
+                const symbol = reel.symbols[symbolIndex];
+                const previousY = symbol.y;
+                symbol.y =
+                    ((reel.position + symbolIndex) % reel.symbols.length) * (SYMBOL_SIZE + SYMBOL_VERTICAL_MARGIN) -
+                    (SYMBOL_SIZE + SYMBOL_VERTICAL_MARGIN);
+                if (symbol.y < 0 && previousY > SYMBOL_SIZE) {
+                    if (symbolIndex !== 0) {
+                        symbol.texture = PIXI.Texture.from(
+                            `./assets/symbols/${machineResult.reels[reelIndex][symbolIndex - 1]}.png`
+                        );
+                        symbol.scale.x = symbol.scale.y = Math.min(
+                            SYMBOL_SIZE / symbol.texture.width,
+                            SYMBOL_SIZE / symbol.texture.height
+                        );
+                        symbol.x = Math.round((SYMBOL_SIZE - symbol.width) / 2);
                     }
                 }
             }
@@ -285,7 +301,7 @@ const buildReel = () => {
     });
 
     const createMaskForReels = () => {
-        reelContainer.mask = new PIXI.Graphics()
+        reelsContainer.mask = new PIXI.Graphics()
             .beginFill(0xffffff)
             .drawRect(0, window.innerHeight * 0.028, window.innerWidth, window.innerHeight * 0.79)
             .endFill();
@@ -293,9 +309,10 @@ const buildReel = () => {
     createMaskForReels();
     window.addEventListener("resize", createMaskForReels);
 
-    return { reelContainer, startPlay };
+    return { reelContainer: reelsContainer, startPlay };
 };
 
+// External code
 const tweening: any[] = [];
 const tweenTo = (
     object: { [x: string]: any },
